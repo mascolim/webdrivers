@@ -60,22 +60,6 @@ module Webdrivers
       def base_url
         'https://chromedriver.storage.googleapis.com'
       end
-      #
-      # #
-      # # Returns url with known good versions of chromedriver with download links. Supports Chrome releases 113+.
-      # #
-      # # @return [String]
-      # def chromedrivers_list_url
-      #   'https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json'
-      # end
-      #
-      # #
-      # # Returns url with last known good versions by release channel.
-      # #
-      # # @return [String]
-      # def latest_chrome_url
-      #   'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json'
-      # end
 
       #
       # Returns url with last known good version by release(milestone) number. Supports Chrome releases 113+
@@ -97,15 +81,15 @@ module Webdrivers
       rescue NetworkError
         msg = "Unable to find latest point release version for #{version}."
         msg = begin
-          latest_release = normalize_version(Network.get(URI.join(base_url, 'LATEST_RELEASE')))
-          if version > latest_release
-            "#{msg} You appear to be using a non-production version of Chrome."
-          else
-            msg
-          end
-        rescue NetworkError
-          "#{msg} A network issue is preventing determination of latest chromedriver release."
-        end
+                latest_release = normalize_version(Network.get(URI.join(base_url, 'LATEST_RELEASE')))
+                if version > latest_release
+                  "#{msg} You appear to be using a non-production version of Chrome."
+                else
+                  msg
+                end
+              rescue NetworkError
+                "#{msg} A network issue is preventing determination of latest chromedriver release."
+              end
 
         msg = "#{msg} Please set `Webdrivers::Chromedriver.required_version = <desired driver version>` "\
               'to a known chromedriver version: https://chromedriver.storage.googleapis.com/index.html'
@@ -144,7 +128,6 @@ module Webdrivers
           url = JSON.parse(Network.get(latest_milestone_url))['milestones'][normalize_version(driver_version).segments[0].to_s]['downloads']['chromedriver'][platform_code]['url']
         end
       end
-
 
       def platform_code
         if System.platform == 'win' || System.wsl_v1?
