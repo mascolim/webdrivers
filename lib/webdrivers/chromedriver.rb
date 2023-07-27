@@ -3,6 +3,7 @@
 require 'shellwords'
 require 'webdrivers/common'
 require 'webdrivers/chrome_finder'
+require 'json'
 
 module Webdrivers
   class Chromedriver < Common
@@ -53,29 +54,42 @@ module Webdrivers
       alias chrome_version browser_version
 
       #
-      # Returns url with domain for calls to get this driver.
+      # Returns url with domain for calls to get this driver. For Chrome releases < 115.
       #
       # @return [String]
       def base_url
         'https://chromedriver.storage.googleapis.com'
       end
 
+      #
+      # Returns url with last known good version by release(milestone) number. Supports Chrome releases 113+
+      #
+      # @return [String]
+      def latest_milestone_url
+        'https://googlechromelabs.github.io/chrome-for-testing/latest-versions-per-milestone-with-downloads.json'
+      end
+
       private
 
       def latest_point_release(version)
-        normalize_version(Network.get(URI.join(base_url, "LATEST_RELEASE_#{version}")))
+        if version < normalize_version('115')
+          normalize_version(Network.get(URI.join(base_url, "LATEST_RELEASE_#{version}")))
+        else
+          normalize_version(JSON.parse(Network.get(latest_milestone_url))['milestones'][normalize_version(version).segments[0].to_s]['version'])
+        end
+
       rescue NetworkError
         msg = "Unable to find latest point release version for #{version}."
         msg = begin
-          latest_release = normalize_version(Network.get(URI.join(base_url, 'LATEST_RELEASE')))
-          if version > latest_release
-            "#{msg} You appear to be using a non-production version of Chrome."
-          else
-            msg
-          end
-        rescue NetworkError
-          "#{msg} A network issue is preventing determination of latest chromedriver release."
-        end
+                latest_release = normalize_version(Network.get(URI.join(base_url, 'LATEST_RELEASE')))
+                if version > latest_release
+                  "#{msg} You appear to be using a non-production version of Chrome."
+                else
+                  msg
+                end
+              rescue NetworkError
+                "#{msg} A network issue is preventing determination of latest chromedriver release."
+              end
 
         msg = "#{msg} Please set `Webdrivers::Chromedriver.required_version = <desired driver version>` "\
               'to a known chromedriver version: https://chromedriver.storage.googleapis.com/index.html'
@@ -97,16 +111,35 @@ module Webdrivers
         false
       end
 
-      def apple_filename(driver_version)
-        if apple_m1_compatible?(driver_version)
-          driver_version >= normalize_version('106.0.5249.61') ? 'mac_arm64' : 'mac64_m1'
+      def download_url
+        return @download_url if @download_url
+
+        driver_version = if required_version == EMPTY_VERSION
+                           latest_version
+                         else
+                           normalize_version(required_version)
+                         end
+        if driver_version < normalize_version('115')
+          filename = driver_filename(driver_version)
+          url = "#{base_url}/#{driver_version}/chromedriver_#{filename}.zip"
+          Webdrivers.logger.debug "chromedriver URL: #{url}"
+          @download_url = url
         else
-          'mac64'
+          url = JSON.parse(Network.get(latest_milestone_url))['milestones'][normalize_version(driver_version).segments[0].to_s]['downloads']['chromedriver'][platform_code]['url']
         end
       end
 
-      def direct_url(driver_version)
-        "#{base_url}/#{driver_version}/chromedriver_#{driver_filename(driver_version)}.zip"
+      def platform_code
+        if System.platform == 'win' || System.wsl_v1?
+          3
+        elsif System.platform == 'linux'
+          0
+        elsif System.platform == 'mac'
+          apple_arch = apple_m1_architecture? ? 1 : 2
+          "#{apple_arch}"
+        else
+          raise 'Failed to determine driver filename to download for your OS.'
+        end
       end
 
       def driver_filename(driver_version)
@@ -115,7 +148,8 @@ module Webdrivers
         elsif System.platform == 'linux'
           'linux64'
         elsif System.platform == 'mac'
-          apple_filename(driver_version)
+          apple_arch = apple_m1_compatible?(driver_version) ? '_m1' : ''
+          "mac64#{apple_arch}"
         else
           raise 'Failed to determine driver filename to download for your OS.'
         end
@@ -153,4 +187,17 @@ module Webdrivers
   end
 end
 
-::Selenium::WebDriver::Chrome::Service.driver_path = proc { ::Webdrivers::Chromedriver.update }
+if ::Selenium::WebDriver::Service.respond_to? :driver_path=
+  ::Selenium::WebDriver::Chrome::Service.driver_path = proc { ::Webdrivers::Chromedriver.update }
+else
+  # v3.141.0 and lower
+  module Selenium
+    module WebDriver
+      module Chrome
+        def self.driver_path
+          @driver_path ||= Webdrivers::Chromedriver.update
+        end
+      end
+    end
+  end
+end
