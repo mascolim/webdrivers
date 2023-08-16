@@ -1,5 +1,15 @@
 # Webdrivers
 
+Chromedriver 115+ support for Selenium 3. Incompatible with Selenium 4+ 
+This fork will be obsolete with the release of webdrivers 6.0.0
+
+Forked from webdrivers 4.5.0
+
+To use, simply target this fork's git url.
+```ruby
+gem 'webdrivers', git: "https://github.com/mascolim/webdrivers.git"
+```
+
 [![Gem Version](https://badge.fury.io/rb/webdrivers.svg)](https://badge.fury.io/rb/webdrivers)
 [![Build status](https://travis-ci.org/titusfortner/webdrivers.svg?branch=master)](https://travis-ci.org/titusfortner/webdrivers)
 [![AppVeyor status](https://ci.appveyor.com/api/projects/status/ejh90xqbvkphq4cy/branch/master?svg=true)](https://ci.appveyor.com/project/titusfortner/webdrivers/branch/master)
@@ -20,10 +30,10 @@ Works on macOS, Linux, Windows, and Windows Subsystem for Linux (WSL) v1.
 
 ## Usage
 
-In your Gemfile:
+In your Gemfile. Replace 
 
 ```ruby
-gem 'webdrivers', '~> 4.0', require: false
+gem 'webdrivers', git: "https://github.com/mascolim/webdrivers.git"
 ```
 
 In your project:
