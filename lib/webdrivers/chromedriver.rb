@@ -31,13 +31,14 @@ module Webdrivers
         @latest_version ||= begin
           # Versions before 70 do not have a LATEST_RELEASE file
           return normalize_version('2.41') if browser_build_version < normalize_version('70')
-
+          current_build_major_version = current_build_version.segments[0] if current_build_version
+          browser_build_major_version = browser_build_version.segments[0] if browser_build_version
           # Cache check
           # Cached version should exist and be compatible with the current browser version.
           # Otherwise, fetch the latest compatible driver.
           latest_applicable = with_cache(file_name,
-                                         current_build_version,
-                                         browser_build_version) { latest_point_release(browser_build_version) }
+                                         current_build_major_version,
+                                         browser_build_major_version) { latest_point_release(browser_build_version) }
 
           Webdrivers.logger.debug "Latest version available: #{latest_applicable}"
           normalize_version(latest_applicable)
